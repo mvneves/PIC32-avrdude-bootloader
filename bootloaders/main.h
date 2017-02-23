@@ -171,8 +171,13 @@ extern uint32 _skip_ram_space_addr;
 extern uint32 _skip_ram_space_end_adder;
 extern uint32 _RAM_SKIP_SIZE;
 
-#define offsetBaseAddrInfo 	(0x0F8ul)
-#define offsetHeaderInfo 	(0x0FCul)
+#ifdef SECURE_BOOT
+#define offsetBaseAddrInfo  (0x008ul)
+#define offsetHeaderInfo    (0x010ul)
+#else
+#define offsetBaseAddrInfo  (0x0F8ul)
+#define offsetHeaderInfo    (0x0FCul)
+#endif
 
 // The reset of the forward references
 static void ExecuteApp(void);
@@ -181,6 +186,21 @@ static void flashErasePage(uint32 addrPage);
 static void flashWriteUint32(uint32 addrUint32, uint32 *rgu32Data, uint32 cu32Data);
 static IMAGE_HEADER_INFO * getHeaderStructure(uint32 imageBaseAddr);
 static void finshFlashProcessingAfterLoad(void);
+
+#pragma pack(push,2)
+typedef struct {
+    unsigned char header_version;       // Version number of this header
+    unsigned int flash_start_addr;      // Address to program flash start
+    unsigned int user_app_addr;         // Address to user application (bootloader will jump to it after valitation)
+    unsigned int firmware_start_addr;   // Firmware start address in flash
+    unsigned int firmware_length;       // Firmware length
+    unsigned char hash[32];             // SHA256 hash computed for firmware image
+    unsigned char signature[256];       // hash encrypted with RSA private key
+} firmware_header;
+#pragma pack(pop)
+
+static firmware_header * getFirmwareHeader(uint32 imageBaseAddr);
+
 
 #define MAIN_INCLUDED  1
 #endif  // MAIN_INCLUDED

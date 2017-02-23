@@ -40,6 +40,10 @@
 #define PUT_CONFIG_BITS_HERE
 #include "main.h"
 
+#ifdef SECURE_BOOT
+#include <sal_crypto.h>
+#endif
+
 // the stk500v2 state machine states
 // see: http://www.atmel.com/dyn/resources/prod_documents/doc2591.pdf
 enum {
@@ -613,11 +617,27 @@ avrbl_message(byte *request, int size)
 */
 static void ExecuteApp(void)
 {
-  IMAGE_HEADER_INFO *   pHeaderInfo;
-
-    UninitStk500v2Interface(); 
-    UninitLEDsAndButtons();
+#ifdef SECURE_BOOT
+    firmware_header *     pFirmwareHeader;
+#else
+    IMAGE_HEADER_INFO *   pHeaderInfo;
+#endif
     
+    UninitStk500v2Interface();
+#ifndef SECURE_BOOT
+    UninitLEDsAndButtons();
+#else
+    //BootLED_Toggle();
+    pFirmwareHeader = getFirmwareHeader(addrBase);
+    if (pFirmwareHeader != NULL) {
+        DownloadLED_On(); // YELLOW
+        if(compute_hash(pFirmwareHeader) == 0) {
+            BootLED_On(); // RED
+        }
+    }
+#endif /* SECURE_BOOT */
+
+#ifndef SECURE_BOOT
 	// We are about to jump to the application
 	// but lets first check to see if the header info gave me a 
 	// special jump location
@@ -658,7 +678,7 @@ static void ExecuteApp(void)
             ilmemcpy(pHeaderInfo->pRamHeader, &ramHeader, cb);
         }
 	}
-
+#endif /* SECURE_BOOT */
 
     // jump to the sketch
     // by default, USER_APP_ADDR as defined in BoardConfig.h is used.
@@ -710,6 +730,59 @@ static IMAGE_HEADER_INFO * getHeaderStructure(uint32 imageBaseAddr)
 	return(NULL);
 }
 
+#ifdef SECURE_BOOT
+static firmware_header * getFirmwareHeader(uint32 imageBaseAddr)
+{
+    firmware_header *     pFirmwareHeader;
+    uint32                addr        = imageBaseAddr + offsetHeaderInfo;
+    //uint32                  addrHigh    = FLASH_START + FLASH_BYTES;
+
+    //addr = *((uint32 *) addr);      // dereference and get the header address
+    pFirmwareHeader = (firmware_header *) addr;       // it is a header, set our header struct to it.
+    //if(pFirmwareHeader->flash_start_addr == imageBaseAddr) {
+    if(pFirmwareHeader->header_version == 0x01 && pFirmwareHeader->flash_start_addr == FLASH_START) {
+        // all looks good, so we have the header.
+        return(pFirmwareHeader);
+    }
+
+    return(NULL);
+}
+
+int compute_hash(firmware_header *pFirmwareHeader)
+{
+    int i;
+    unsigned char hash[32];
+    sha256_t sha256;
+    unsigned int addr = FLASH_START;
+    unsigned int end = FLASH_START + 0x8000;
+
+    unsigned int data[4];
+
+    sha256_init(&sha256);
+
+    /* read from 0x00 to 0x0F */
+    sha256_update(&sha256, (unsigned char*)addr, (unsigned long)0x10);
+
+    /* skip firmware header area */
+    addr += 0x200;
+
+    while (addr < end) {
+        sha256_update(&sha256, (unsigned char*)addr, (unsigned long)0x10);
+        addr += 0x10;
+    }
+
+    sha256_final(&sha256, hash);
+
+    for (i = 0; i < 32; i++) {
+        if (hash[i] != pFirmwareHeader->hash[i]) {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+#endif /* SECURE_BOOT */
+
 /***    void eraseFlashViaHeaderInstructions(void)
 **
 **    Synopsis:   
@@ -737,6 +810,7 @@ static void finshFlashProcessingAfterLoad(void)
     uint32 			addrLow		= FLASH_START;
     uint32 			addrHigh 	= FLASH_START + FLASH_BYTES - DEFAULT_EEPROM_SIZE;
 
+#ifndef SECURE_BOOT
 	// see if we have a header
 	if((pHeaderInfo = getHeaderStructure(addrBase)) != NULL)
     {    
@@ -767,6 +841,7 @@ static void finshFlashProcessingAfterLoad(void)
         // and if none of the above, we will erase all but the last 4K reserved for EEProm 
         // as we did in the past.
  	}           
+#endif /* !SECURE_BOOT */
 
     // Cleared any pages that have not been cleared to the requested limits
 	// by default his will be all of flash if we did not have a header.

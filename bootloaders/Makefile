@@ -64,6 +64,15 @@ DEF_microchip-eth-sk-uart=-D_BOARD_MICROCHIP_ETH_START_KIT_UART_
 LKR_microchip-eth-sk-uart=MZ-boot-linkerscript.ld
 CFL_microchip-eth-sk-uart=-DPIC32MZ -DINIT_MMU_MZ_FIXED -DINIT_SSX -DINIT_L1_CACHE -DINIT_DSPR2 -DPIC32_SRS_SET_COUNT=8
 
+#Microchip 32MZ starter kit with Secure Boot.
+BIN_microchip-eth-sk-uart-secureboot=Microchip_Eth_Starter_Kit_UART_SecureBoot
+OBJ_microchip-eth-sk-uart-secureboot=main.o pic32_init_tlb_ebi_sqi.o pic32_init_cache.o lib/libsal/*.o lib/axtls-lite/src/*.o
+CRT_microchip-eth-sk-uart-secureboot=crt0MZ.S
+MCU_microchip-eth-sk-uart-secureboot=32MZ2048EFM144
+DEF_microchip-eth-sk-uart-secureboot=-D_BOARD_MICROCHIP_ETH_START_KIT_UART_ -DSECURE_BOOT -DAXTLS_LITE -DBARE_METAL
+LKR_microchip-eth-sk-uart-secureboot=MZ-boot-linkerscript.ld
+CFL_microchip-eth-sk-uart-secureboot=-DPIC32MZ -DINIT_MMU_MZ_FIXED -DINIT_SSX -DINIT_L1_CACHE -DINIT_DSPR2 -DPIC32_SRS_SET_COUNT=8 -I./lib/libsal/ -Ilib/axtls-lite/include/
+
 #Microchip 32MZ Curiosity.
 BIN_microchip-curiosity-uart=Microchip_Curiosity_UART
 OBJ_microchip-curiosity-uart=main.o pic32_init_tlb_ebi_sqi.o pic32_init_cache.o
