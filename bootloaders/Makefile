@@ -65,13 +65,21 @@ LKR_microchip-eth-sk-uart=MZ-boot-linkerscript.ld
 CFL_microchip-eth-sk-uart=-DPIC32MZ -DINIT_MMU_MZ_FIXED -DINIT_SSX -DINIT_L1_CACHE -DINIT_DSPR2 -DPIC32_SRS_SET_COUNT=8
 
 #Microchip 32MZ starter kit with Secure Boot.
+SECURE_BOOT_OBJ = secureboot/libsal/sal_rsa.o \
+                  secureboot/libsal/sal_sha256.o \
+                  secureboot/axtls-lite/src/bigint.o \
+                  secureboot/axtls-lite/src/sha256.o \
+                  secureboot/axtls-lite/src/rsa.o \
+                  secureboot/axtls-lite/src/malloc.o \
+                  secureboot/axtls-lite/src/pic32mz-libc.o
 BIN_microchip-eth-sk-uart-secureboot=Microchip_Eth_Starter_Kit_UART_SecureBoot
-OBJ_microchip-eth-sk-uart-secureboot=main.o pic32_init_tlb_ebi_sqi.o pic32_init_cache.o lib/libsal/*.o lib/axtls-lite/src/*.o
+OBJ_microchip-eth-sk-uart-secureboot=main.o pic32_init_tlb_ebi_sqi.o pic32_init_cache.o ${SECURE_BOOT_OBJ}
 CRT_microchip-eth-sk-uart-secureboot=crt0MZ.S
 MCU_microchip-eth-sk-uart-secureboot=32MZ2048EFM144
 DEF_microchip-eth-sk-uart-secureboot=-D_BOARD_MICROCHIP_ETH_START_KIT_UART_ -DSECURE_BOOT -DAXTLS_LITE -DBARE_METAL
 LKR_microchip-eth-sk-uart-secureboot=MZ-boot-linkerscript.ld
-CFL_microchip-eth-sk-uart-secureboot=-DPIC32MZ -DINIT_MMU_MZ_FIXED -DINIT_SSX -DINIT_L1_CACHE -DINIT_DSPR2 -DPIC32_SRS_SET_COUNT=8 -I./lib/libsal/ -Ilib/axtls-lite/include/
+CFL_microchip-eth-sk-uart-secureboot=-DPIC32MZ -DINIT_MMU_MZ_FIXED -DINIT_SSX -DINIT_L1_CACHE -DINIT_DSPR2 -DPIC32_SRS_SET_COUNT=8 \
+                                     -I./secureboot -I./secureboot/libsal/ -I./secureboot/axtls-lite/include/
 
 #Microchip 32MZ Curiosity.
 BIN_microchip-curiosity-uart=Microchip_Curiosity_UART
@@ -309,10 +317,13 @@ ${BIN_${BOARD}}.elf: ${OBJ_${BOARD}}
 	${CC} ${LDFLAGS} -o $@ ${CRT_${BOARD}} $?
 
 clean:
-	rm -f *.o *.elf
+	rm -f *.elf
+	find . -type f -name '*.o' -delete
+
 
 distclean:
-	rm -f *.o *.elf *.hex
+	rm -f *.elf *.hex
+	find . -type f -name '*.o' -delete
 
 everything:
 	for B in ${BOARDS}; do \

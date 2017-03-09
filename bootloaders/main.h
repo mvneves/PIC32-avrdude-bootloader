@@ -103,7 +103,7 @@ enum {
 #define MKSTR2(s) #s
 #define MKSTR(s) MKSTR2(s)
 
-//#define asm_halt()  asm("SDBBP 0");
+#define asm_halt()  asm("SDBBP 0");
 //#define ASSERT(x)  do { if (! (x)) { asm_halt(); } } while (0)
 #define ASSERT(x)
 #define assert ASSERT
@@ -187,6 +187,7 @@ static void flashWriteUint32(uint32 addrUint32, uint32 *rgu32Data, uint32 cu32Da
 static IMAGE_HEADER_INFO * getHeaderStructure(uint32 imageBaseAddr);
 static void finshFlashProcessingAfterLoad(void);
 
+#ifdef SECURE_BOOT
 #pragma pack(push,2)
 typedef struct {
     unsigned char header_version;       // Version number of this header
@@ -200,6 +201,8 @@ typedef struct {
 #pragma pack(pop)
 
 static firmware_header * getFirmwareHeader(uint32 imageBaseAddr);
+
+#endif
 
 
 #define MAIN_INCLUDED  1

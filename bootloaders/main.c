@@ -42,6 +42,7 @@
 
 #ifdef SECURE_BOOT
 #include <sal_crypto.h>
+#include <rootkey.h>
 #endif
 
 // the stk500v2 state machine states
@@ -618,6 +619,7 @@ avrbl_message(byte *request, int size)
 static void ExecuteApp(void)
 {
 #ifdef SECURE_BOOT
+    int is_secure = false;
     firmware_header *     pFirmwareHeader;
 #else
     IMAGE_HEADER_INFO *   pHeaderInfo;
@@ -627,14 +629,27 @@ static void ExecuteApp(void)
 #ifndef SECURE_BOOT
     UninitLEDsAndButtons();
 #else
-    //BootLED_Toggle();
+    DownloadLED_Off(); // YELLOW
+    BootLED_Off(); // RED
     pFirmwareHeader = getFirmwareHeader(addrBase);
     if (pFirmwareHeader != NULL) {
-        DownloadLED_On(); // YELLOW
-        if(compute_hash(pFirmwareHeader) == 0) {
-            BootLED_On(); // RED
+        unsigned char hash[32];
+        if(compute_hash(pFirmwareHeader, hash) == 0) {
+            if(verify_signature(pFirmwareHeader, hash) == 0) {
+                // firmware image was successfully verified
+                is_secure = true;
+            } else {
+                // decrypted hash doesn't match with the computed one
+                BootLED_On(); // RED ON 
+            }
+        } else {
+            // computed hash doesn't match
+            DownloadLED_On(); // YELLOW ON
         }
     }
+    if (is_secure == false)
+        asm_halt(); // STOP
+
 #endif /* SECURE_BOOT */
 
 #ifndef SECURE_BOOT
@@ -748,10 +763,9 @@ static firmware_header * getFirmwareHeader(uint32 imageBaseAddr)
     return(NULL);
 }
 
-int compute_hash(firmware_header *pFirmwareHeader)
+int compute_hash(firmware_header *pFirmwareHeader, unsigned char *hash)
 {
     int i;
-    unsigned char hash[32];
     sha256_t sha256;
     unsigned int addr = FLASH_START;
     unsigned int end = FLASH_START + 0x8000;
@@ -781,6 +795,31 @@ int compute_hash(firmware_header *pFirmwareHeader)
 
     return 0;
 }
+
+int verify_signature(firmware_header *pFirmwareHeader, unsigned char *hash)
+{
+    int i, len;
+    rsa_t *rsa = NULL;
+    unsigned char digest[1024];
+
+    rsa_pub_key_new(&rsa, rsa_modulus, rsa_mod_len, rsa_expo, rsa_expo_len);
+
+    len = rsa_decrypt(rsa, pFirmwareHeader->signature, digest, 1024);
+    if (len < 32) {
+        return -1;
+    }
+
+    hash[0] = 66;
+
+    for (i = 0; i < 32; i++) {
+        if (hash[i] != digest[i]) {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
 #endif /* SECURE_BOOT */
 
 /***    void eraseFlashViaHeaderInstructions(void)
